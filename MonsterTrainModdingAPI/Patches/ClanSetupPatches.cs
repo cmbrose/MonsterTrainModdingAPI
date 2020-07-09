@@ -121,6 +121,83 @@ namespace MonsterTrainModdingAPI.Patches
             }
         }
 
+        // This patch displays custom characters on the clan select screen
+        [HarmonyPatch(typeof(ClassSelectionScreen), "RefreshCharacters")]
+        public class ClassSelectionScreenCustomCharacters
+        {
+            static void Prefix(ref bool __state, ref ClassSelectCharacterDisplay[] ___characterDisplays)
+            {
+                __state = false;
+                if (___characterDisplays == null)
+                {
+                    __state = true;
+                }
+            }
 
+            static void Postfix(ref bool __state, ref ClassSelectCharacterDisplay[] ___characterDisplays, ref Transform ___charactersRoot)
+            {
+                if (__state)
+                {
+                    int customClassCount = CustomClassManager.CustomClassData.Values.Count;
+                    int totalClassCount = CustomClassManager.SaveManager.GetAllGameData().GetAllClassDatas().Count;
+                    int vanillaClassCount = totalClassCount - customClassCount;
+
+                    // "totalClassCount + 1" to account for the random slot
+                    var characterDisplaysNew = new ClassSelectCharacterDisplay[(totalClassCount + 1) * 2];
+
+                    var characterDisplay = ___characterDisplays[0];
+
+                    Debug.Log(___characterDisplays.Length);
+                    int i;
+                    for (i = 0; i < ___characterDisplays.Length; i++)
+                    {
+                        int clanIndex = (int)AccessTools.Field(typeof(ClassSelectCharacterDisplay), "clanIndex").GetValue(___characterDisplays[i]);
+                        if (clanIndex == vanillaClassCount + 1)
+                        { // Change index of random clan select display to account for custom classes
+                            AccessTools.Field(typeof(ClassSelectCharacterDisplay), "clanIndex").SetValue(___characterDisplays[i], totalClassCount + 1);
+                        }
+                        characterDisplaysNew[i] = ___characterDisplays[i];
+                    }
+
+                    var customClasses = CustomClassManager.CustomClassData.Values;
+
+                    int j = 0;
+                    foreach (ClassData customClassData in customClasses)
+                    {
+                        Debug.Log(j + "  " + i + "  " + customClassCount + "  " + characterDisplaysNew.Length);
+                        
+                        // After vanilla clans, but before random slot
+                        // Note that each clan has two entries in __state, hence "(j / 2)"
+                        int clanIndex = vanillaClassCount + j + 1;
+
+                        var customMainCharacterDisplay = GameObject.Instantiate(characterDisplay);
+
+                        var oldCharacterState = customMainCharacterDisplay.GetComponentInChildren<CharacterState>();
+                        var characterStateObject = oldCharacterState.gameObject;
+                        var customStateObject = CustomCharacterManager.CreateCharacterGameObject("TestMod_Character_BlueEyes");
+                        characterStateObject.transform.parent = characterStateObject.transform.parent;
+                        GameObject.Destroy(characterStateObject);
+
+                        customMainCharacterDisplay.gameObject.SetActive(false);
+                        characterDisplaysNew[i] = customMainCharacterDisplay;
+                        AccessTools.Field(typeof(ClassSelectCharacterDisplay), "clanIndex").SetValue(customMainCharacterDisplay, clanIndex);
+                        customMainCharacterDisplay.name = customClassData.GetID() + "_Main";
+
+                        i++;
+
+                        var customSubCharacterDisplay = GameObject.Instantiate(characterDisplay);
+                        customSubCharacterDisplay.transform.parent = ___charactersRoot;
+                        customSubCharacterDisplay.gameObject.SetActive(false);
+                        characterDisplaysNew[i] = customSubCharacterDisplay;
+                        AccessTools.Field(typeof(ClassSelectCharacterDisplay), "clanIndex").SetValue(customSubCharacterDisplay, clanIndex);
+                        customSubCharacterDisplay.name = customClassData.GetID() + "_Sub";
+
+                        j++;
+                    }
+
+                    ___characterDisplays = characterDisplaysNew;
+                }
+            }
+        }
     }
 }
