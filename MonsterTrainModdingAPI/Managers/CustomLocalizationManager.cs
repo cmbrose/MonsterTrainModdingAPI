@@ -75,7 +75,6 @@ namespace MonsterTrainModdingAPI.Managers
             miniCSVBuilder.Append(portuguese + ";");
             miniCSVBuilder.Append(chinese);
 
-            API.Log(LogLevel.Info, "Missing Localization: " + miniCSVBuilder.ToString().Split(Environment.NewLine.ToCharArray())[1]);
             List<string> categories = LocalizationManager.Sources[0].GetCategories(true, (List<string>)null);
             foreach (string Category in categories)
                 LocalizationManager.Sources[0].Import_CSV(Category, miniCSVBuilder.ToString(), eSpreadsheetUpdateMode.AddNewTerms, ';');
